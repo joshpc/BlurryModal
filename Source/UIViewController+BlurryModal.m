@@ -194,6 +194,7 @@ static JTModalManager *_modalManager;
 	CGFloat overExtend = kJTBlurRadius * 2.0f;
 	CGRect bounds = [self bounds];
 	UIImageView *overlay = [[UIImageView alloc] initWithFrame:CGRectMake(bounds.origin.x - overExtend, bounds.origin.y - overExtend, bounds.size.width + 2.0f * overExtend, bounds.size.height + 2.0f * overExtend)];
+	overlay.userInteractionEnabled = YES;
 	overlay.image = [self blurrySnapshot];
 	overlay.alpha = alpha;
 	return overlay;
