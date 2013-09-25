@@ -12,6 +12,7 @@
 #define kJTBlurAnimationDuration 0.5f
 
 static NSMutableArray *_viewControllerStack;
+static NSMutableArray *_containerViewStack;
 static NSMutableArray *_blurryOverlayStack;
 
 static void callCompletionBlock(JTCompletionBlock completion) {
@@ -20,7 +21,7 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 	}
 }
 
-@interface UIWindow (Snapshot)
+@interface UIView (Snapshot)
 - (UIImageView*)blurryImageOverlayWithAlpha:(CGFloat)alpha;
 @end
 
@@ -31,10 +32,27 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 	if ([self class] == [UIViewController class]) {
 		_viewControllerStack = [[NSMutableArray alloc] init];
 		_blurryOverlayStack = [[NSMutableArray alloc] init];
+		_containerViewStack = [[NSMutableArray alloc] init];
 	}
 }
 
 #pragma mark - Push Modal View Controller
+
++ (CGSize)preferredModalSizeForController:(UIViewController*)controller constrainedTo:(CGRect)bounds
+{
+	CGSize viewSize = bounds.size;
+	UIViewController *rootController = controller;
+	
+	while ([rootController isKindOfClass:[UINavigationController class]]) {
+		rootController = [[(UINavigationController*)rootController viewControllers] lastObject];
+	}
+	
+	if ([rootController conformsToProtocol:@protocol(JTBlurryModal)]) {
+		viewSize = [(id<JTBlurryModal>)rootController sizeWhenPresentedModally];
+	}
+	
+	return viewSize;
+}
 
 - (void)pushModalViewController:(UIViewController*)controller
 {
@@ -48,25 +66,31 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 
 - (void)pushModalViewController:(UIViewController*)controller animated:(BOOL)animated completion:(void (^)(void))completion
 {
-	UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
-	CGRect bounds = [keyWindow bounds];
-	CGSize viewSize = bounds.size;
+	CGRect bounds = [self.view bounds];
+	CGSize viewSize = [UIViewController preferredModalSizeForController:controller constrainedTo:bounds];
 	
-	if ([controller conformsToProtocol:@protocol(JTBlurryModal)]) {
-		viewSize = [(id<JTBlurryModal>)controller sizeWhenPresentedModally];
-	}
+	[controller willMoveToParentViewController:self];
 	
 	CGFloat alpha = animated ? 0.0f : 1.0f;
-	UIImageView *overlay = [keyWindow blurryImageOverlayWithAlpha:alpha];
-	[keyWindow addSubview:overlay];
+	UIImageView *overlay = [self.view blurryImageOverlayWithAlpha:alpha];
+	[self.view addSubview:overlay];
 	[_blurryOverlayStack addObject:overlay];
 	
 	UIView *view = controller.view;
 	view.alpha = alpha;
-	view.frame = CGRectMake(bounds.origin.x + roundf((bounds.size.width - viewSize.width) * 0.5f), bounds.origin.y + roundf((bounds.size.height - viewSize.height) * 0.5f), viewSize.width, viewSize.height);
-	[keyWindow addSubview:view];
-	[_viewControllerStack addObject:controller];
+	view.frame = CGRectMake(0.0f, 0.0f, viewSize.width, viewSize.height);
 	
+	UIView *containerView = [[UIView alloc] init];
+	containerView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleTopMargin;
+	containerView.backgroundColor = [UIColor clearColor];
+	containerView.frame = CGRectMake(bounds.origin.x + roundf((bounds.size.width - viewSize.width) * 0.5f), bounds.origin.y + roundf((bounds.size.height - viewSize.height) * 0.5f), viewSize.width, viewSize.height);
+	[containerView addSubview:view];
+	
+	[self.view addSubview:containerView];
+	[self addChildViewController:controller];
+	[_containerViewStack addObject:containerView];
+	[_viewControllerStack addObject:controller];
+
 	[self completeControllerTransition:controller overlay:overlay animated:animated completion:completion];
 }
 
@@ -87,9 +111,17 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 	if ([_viewControllerStack count] > 0) {
 		UIViewController *controller = [_viewControllerStack lastObject];
 		UIImageView *overlay = [_blurryOverlayStack lastObject];
+		UIView *containerView = [_containerViewStack lastObject];
+		[containerView removeFromSuperview];
+		
+		[controller willMoveToParentViewController:nil];
+		[controller.view removeFromSuperview];
+		[controller removeFromParentViewController];
+		[controller didMoveToParentViewController:nil];
 		
 		[_viewControllerStack removeObject:controller];
 		[_blurryOverlayStack removeObject:overlay];
+		[_containerViewStack removeObject:containerView];
 		
 		[self completeControllerDismissal:animated controller:controller completion:completion overlay:overlay];
 	}
@@ -99,45 +131,39 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 
 - (void)completeControllerTransition:(UIViewController*)controller overlay:(UIImageView *)overlay animated:(BOOL)animated completion:(void (^)())completion
 {
-	[controller viewWillAppear:animated];
 	if (animated) {
 		[UIView animateWithDuration:kJTBlurAnimationDuration animations:^{
 			overlay.alpha = 1.0f;
 			controller.view.alpha = 1.0f;
 		} completion:^(BOOL finished) {
-			[controller viewDidAppear:animated];
+			[controller didMoveToParentViewController:self];
 			callCompletionBlock(completion);
 		}];
 	}
 	else {
-		[controller viewDidAppear:animated];
 		callCompletionBlock(completion);
 	}
 }
 
 - (void)completeControllerDismissal:(BOOL)animated controller:(UIViewController *)controller completion:(void (^)())completion overlay:(UIImageView *)overlay
 {
-	[controller viewWillDisappear:animated];
 	if (animated) {
 		[UIView animateWithDuration:kJTBlurAnimationDuration animations:^{
 			overlay.alpha = 0.0f;
 			controller.view.alpha = 0.0f;
 		} completion:^(BOOL finished) {
-			[controller viewDidDisappear:animated];
-			[overlay removeFromSuperview];
-			[controller.view removeFromSuperview];
+			[controller didMoveToParentViewController:nil];
 			callCompletionBlock(completion);
 		}];
 	}
 	else {
-		[controller viewDidDisappear:animated];
 		callCompletionBlock(completion);
 	}
 }
 
 @end
 
-@implementation UIWindow (Snapshot)
+@implementation UIView (Snapshot)
 
 - (UIImage*)snapshot
 {

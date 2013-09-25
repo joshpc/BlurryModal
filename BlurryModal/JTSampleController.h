@@ -7,7 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "UIViewController+BlurryModal.h"
 
-@interface JTSampleController : UITableViewController
+@interface JTSampleController : UITableViewController <JTBlurryModal>
 
 @end

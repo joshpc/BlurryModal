@@ -25,4 +25,30 @@
 	return cell;
 }
 
+- (BOOL)shouldAutorotate
+{
+	return YES;
+}
+
+- (NSUInteger)supportedInterfaceOrientations
+{
+	return UIInterfaceOrientationMaskAllButUpsideDown;
+}
+
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation
+{
+	return UIInterfaceOrientationLandscapeLeft;
+}
+
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+	[super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
+	NSLog(@"asdf");
+}
+
+- (CGSize)sizeWhenPresentedModally
+{
+	return CGSizeMake(200, 200);
+}
+
 @end

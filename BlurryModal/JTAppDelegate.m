@@ -22,12 +22,10 @@
 	
 	UIImageView *imageView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"warning"]];
 	imageView.frame = CGRectMake(100, 100, imageView.frame.size.width, imageView.frame.size.height);
+	[[controller view] setBackgroundColor:[UIColor greenColor]];
 	[[controller view] addSubview:imageView];
 	
-	UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:controller];
-	[[controller view] setBackgroundColor:[UIColor blueColor]];
-	
-	[self.window setRootViewController:navController];
+	[self.window setRootViewController:controller];
 	[self.window makeKeyAndVisible];
 	
 	double delayInSeconds = 2.0;
@@ -40,9 +38,9 @@
 			double delayInSeconds = 2.0;
 			dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
 			dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-				[controller popModalViewController:YES completion:^{
-					NSLog(@"Done");
-				}];
+//				[controller popModalViewController:YES completion:^{
+//					NSLog(@"Done");
+//				}];
 			});
 			
 		}];
