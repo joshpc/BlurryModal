@@ -27,21 +27,20 @@
 	
 	[self.window setRootViewController:controller];
 	[self.window makeKeyAndVisible];
-	
 	double delayInSeconds = 2.0;
 	dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
 	dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
 		UIViewController *newController = [[JTSampleController alloc] init];
 		newController.view.backgroundColor = [UIColor orangeColor];
 		[controller pushModalViewController:newController animated:YES completion:^{
-
-			double delayInSeconds = 2.0;
-			dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
-			dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+//			
+//			double delayInSeconds = 2.0;
+//			dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+//			dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
 //				[controller popModalViewController:YES completion:^{
 //					NSLog(@"Done");
 //				}];
-			});
+//			});
 			
 		}];
 	});

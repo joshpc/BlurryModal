@@ -11,9 +11,15 @@
 #define kJTBlurRadius 15.0f
 #define kJTBlurAnimationDuration 0.5f
 
-static NSMutableArray *_viewControllerStack;
-static NSMutableArray *_containerViewStack;
-static NSMutableArray *_blurryOverlayStack;
+/**
+ * Simple class to manage the modal views that are displayed. This is class is not thread safe.
+ */
+@interface JTModalManager : NSObject
+
+@property (nonatomic, strong) NSMutableArray *viewControllerStack;
+@property (nonatomic, strong) NSMutableArray *blurryOverlayStack;
+
+@end
 
 static void callCompletionBlock(JTCompletionBlock completion) {
 	if (completion) {
@@ -25,14 +31,14 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 - (UIImageView*)blurryImageOverlayWithAlpha:(CGFloat)alpha;
 @end
 
+static JTModalManager *_modalManager;
+
 @implementation UIViewController (JTModal)
 
 + (void)initialize
 {
 	if ([self class] == [UIViewController class]) {
-		_viewControllerStack = [[NSMutableArray alloc] init];
-		_blurryOverlayStack = [[NSMutableArray alloc] init];
-		_containerViewStack = [[NSMutableArray alloc] init];
+		_modalManager = [[JTModalManager alloc] init];
 	}
 }
 
@@ -66,15 +72,16 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 
 - (void)pushModalViewController:(UIViewController*)controller animated:(BOOL)animated completion:(void (^)(void))completion
 {
-	CGRect bounds = [self.view bounds];
+	UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+	CGRect bounds = [keyWindow bounds];
 	CGSize viewSize = [UIViewController preferredModalSizeForController:controller constrainedTo:bounds];
 	
 	[controller willMoveToParentViewController:self];
 	
 	CGFloat alpha = animated ? 0.0f : 1.0f;
-	UIImageView *overlay = [self.view blurryImageOverlayWithAlpha:alpha];
-	[self.view addSubview:overlay];
-	[_blurryOverlayStack addObject:overlay];
+	UIImageView *overlay = [keyWindow blurryImageOverlayWithAlpha:alpha];
+	[keyWindow addSubview:overlay];
+	[_modalManager.blurryOverlayStack addObject:overlay];
 	
 	UIView *view = controller.view;
 	view.alpha = alpha;
@@ -86,10 +93,9 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 	containerView.frame = CGRectMake(bounds.origin.x + roundf((bounds.size.width - viewSize.width) * 0.5f), bounds.origin.y + roundf((bounds.size.height - viewSize.height) * 0.5f), viewSize.width, viewSize.height);
 	[containerView addSubview:view];
 	
-	[self.view addSubview:containerView];
+	[overlay addSubview:containerView];
 	[self addChildViewController:controller];
-	[_containerViewStack addObject:containerView];
-	[_viewControllerStack addObject:controller];
+	[_modalManager.viewControllerStack addObject:controller];
 
 	[self completeControllerTransition:controller overlay:overlay animated:animated completion:completion];
 }
@@ -108,20 +114,11 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 
 - (void)popModalViewController:(BOOL)animated completion:(void (^)(void))completion
 {
-	if ([_viewControllerStack count] > 0) {
-		UIViewController *controller = [_viewControllerStack lastObject];
-		UIImageView *overlay = [_blurryOverlayStack lastObject];
-		UIView *containerView = [_containerViewStack lastObject];
-		[containerView removeFromSuperview];
-		
-		[controller willMoveToParentViewController:nil];
-		[controller.view removeFromSuperview];
-		[controller removeFromParentViewController];
-		[controller didMoveToParentViewController:nil];
-		
-		[_viewControllerStack removeObject:controller];
-		[_blurryOverlayStack removeObject:overlay];
-		[_containerViewStack removeObject:containerView];
+	if ([_modalManager.viewControllerStack count] > 0) {
+		UIViewController *controller = [_modalManager.viewControllerStack lastObject];
+		UIImageView *overlay = [_modalManager.blurryOverlayStack lastObject];
+		[_modalManager.viewControllerStack removeObject:controller];
+		[_modalManager.blurryOverlayStack removeObject:overlay];
 		
 		[self completeControllerDismissal:animated controller:controller completion:completion overlay:overlay];
 	}
@@ -136,11 +133,12 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 			overlay.alpha = 1.0f;
 			controller.view.alpha = 1.0f;
 		} completion:^(BOOL finished) {
-			[controller didMoveToParentViewController:self];
 			callCompletionBlock(completion);
 		}];
 	}
 	else {
+		overlay.alpha = 1.0f;
+		controller.view.alpha = 1.0f;
 		callCompletionBlock(completion);
 	}
 }
@@ -152,11 +150,13 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 			overlay.alpha = 0.0f;
 			controller.view.alpha = 0.0f;
 		} completion:^(BOOL finished) {
-			[controller didMoveToParentViewController:nil];
+			[overlay removeFromSuperview];
 			callCompletionBlock(completion);
 		}];
 	}
 	else {
+		overlay.alpha = 0.0f;
+		[overlay removeFromSuperview];
 		callCompletionBlock(completion);
 	}
 }
@@ -197,6 +197,72 @@ static void callCompletionBlock(JTCompletionBlock completion) {
 	overlay.image = [self blurrySnapshot];
 	overlay.alpha = alpha;
 	return overlay;
+}
+
+@end
+
+@implementation JTModalManager
+
+- (instancetype)init
+{
+	self = [super init];
+	if (self) {
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(statusBarWillRotate:) name:UIApplicationWillChangeStatusBarOrientationNotification object:nil];
+		
+		_viewControllerStack = [[NSMutableArray alloc] init];
+		_blurryOverlayStack = [[NSMutableArray alloc] init];
+	}
+	return self;
+}
+
+- (void)dealloc
+{
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)statusBarWillRotate:(NSNotification *)notification
+{
+	UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+	CGRect bounds = [keyWindow bounds];
+
+	NSDictionary *userInfo = [notification userInfo];
+	UIInterfaceOrientation orientation = [userInfo[UIApplicationStatusBarOrientationUserInfoKey] integerValue];
+	
+	CGFloat rotation = 0;
+	switch (orientation) {
+		case UIInterfaceOrientationLandscapeLeft:
+			rotation = -M_PI_2;
+			break;
+		case UIInterfaceOrientationLandscapeRight:
+			rotation = M_PI_2;
+			break;
+		case UIInterfaceOrientationPortraitUpsideDown:
+			rotation = M_PI;
+			break;
+		case UIInterfaceOrientationPortrait:
+		default:
+			rotation = 0;
+			break;
+	}
+
+	if ([_viewControllerStack count] > 0) {
+		//TODO: Handle all modals in the stack
+		UIViewController *controller = [_viewControllerStack lastObject];
+		CGAffineTransform rotationTransform = CGAffineTransformMakeRotation(rotation);
+		CGFloat animationDuration = [UIApplication sharedApplication].statusBarOrientationAnimationDuration;
+		UIInterfaceOrientation currentOrientation = [[UIApplication sharedApplication] statusBarOrientation];
+		
+		[controller willRotateToInterfaceOrientation:orientation duration:animationDuration];
+		[UIView animateWithDuration:animationDuration animations:^{
+			UIView *view = [_blurryOverlayStack lastObject];
+
+			CGSize rotatedSize = CGRectApplyAffineTransform(view.bounds, rotationTransform).size;
+			view.transform = rotationTransform;
+			view.frame = CGRectMake(bounds.origin.x + roundf((bounds.size.width - rotatedSize.width) * 0.5f), bounds.origin.y + roundf((bounds.size.height - rotatedSize.height) * 0.5f), rotatedSize.width, rotatedSize.height);
+		 } completion:^(BOOL finished) {
+			 [controller didRotateFromInterfaceOrientation:currentOrientation];
+		 }];
+	}
 }
 
 @end
