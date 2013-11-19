@@ -11,6 +11,7 @@
 typedef void (^JTCompletionBlock)(void);
 
 @protocol JTBlurryModal <NSObject>
+@optional
 - (CGSize)sizeWhenPresentedModally;
 @end
 

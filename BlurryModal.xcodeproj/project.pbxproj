@@ -23,6 +23,7 @@
 		F70F416417F27F6B0009EBFC /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F70F416317F27F6B0009EBFC /* CoreImage.framework */; };
 		F70F416717F28D5D0009EBFC /* UIViewController+BlurryModal.m in Sources */ = {isa = PBXBuildFile; fileRef = F70F416617F28D5D0009EBFC /* UIViewController+BlurryModal.m */; };
 		F70F416C17F28E970009EBFC /* JTSampleController.m in Sources */ = {isa = PBXBuildFile; fileRef = F70F416B17F28E970009EBFC /* JTSampleController.m */; };
+		F7DD7FB3183B27F50061149D /* JTSampleView.m in Sources */ = {isa = PBXBuildFile; fileRef = F7DD7FB2183B27F50061149D /* JTSampleView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +59,8 @@
 		F70F416617F28D5D0009EBFC /* UIViewController+BlurryModal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIViewController+BlurryModal.m"; path = "Source/UIViewController+BlurryModal.m"; sourceTree = SOURCE_ROOT; };
 		F70F416A17F28E970009EBFC /* JTSampleController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JTSampleController.h; sourceTree = "<group>"; };
 		F70F416B17F28E970009EBFC /* JTSampleController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JTSampleController.m; sourceTree = "<group>"; };
+		F7DD7FB1183B27F50061149D /* JTSampleView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JTSampleView.h; sourceTree = "<group>"; };
+		F7DD7FB2183B27F50061149D /* JTSampleView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JTSampleView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +176,8 @@
 				F70F416117F27E6A0009EBFC /* warning.png */,
 				F70F416A17F28E970009EBFC /* JTSampleController.h */,
 				F70F416B17F28E970009EBFC /* JTSampleController.m */,
+				F7DD7FB1183B27F50061149D /* JTSampleView.h */,
+				F7DD7FB2183B27F50061149D /* JTSampleView.m */,
 			);
 			name = Demo;
 			sourceTree = "<group>";
@@ -277,6 +282,7 @@
 				F70F416717F28D5D0009EBFC /* UIViewController+BlurryModal.m in Sources */,
 				F70F414017F279620009EBFC /* JTAppDelegate.m in Sources */,
 				F70F413C17F279620009EBFC /* main.m in Sources */,
+				F7DD7FB3183B27F50061149D /* JTSampleView.m in Sources */,
 				F70F416C17F28E970009EBFC /* JTSampleController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -402,6 +408,7 @@
 				GCC_PREFIX_HEADER = "BlurryModal/BlurryModal-Prefix.pch";
 				INFOPLIST_FILE = "BlurryModal/BlurryModal-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -415,6 +422,7 @@
 				GCC_PREFIX_HEADER = "BlurryModal/BlurryModal-Prefix.pch";
 				INFOPLIST_FILE = "BlurryModal/BlurryModal-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;
@@ -480,6 +488,7 @@
 				F70F415A17F279630009EBFC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		F70F415B17F279630009EBFC /* Build configuration list for PBXNativeTarget "BlurryModalTests" */ = {
 			isa = XCConfigurationList;
@@ -488,6 +497,7 @@
 				F70F415D17F279630009EBFC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

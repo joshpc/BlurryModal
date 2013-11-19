@@ -53,7 +53,7 @@ static JTModalManager *_modalManager;
 		rootController = [[(UINavigationController*)rootController viewControllers] lastObject];
 	}
 	
-	if ([rootController conformsToProtocol:@protocol(JTBlurryModal)]) {
+	if ([rootController conformsToProtocol:@protocol(JTBlurryModal)] && [rootController respondsToSelector:@selector(sizeWhenPresentedModally)]) {
 		viewSize = [(id<JTBlurryModal>)rootController sizeWhenPresentedModally];
 	}
 	
@@ -76,8 +76,6 @@ static JTModalManager *_modalManager;
 	CGRect bounds = [keyWindow bounds];
 	CGSize viewSize = [UIViewController preferredModalSizeForController:controller constrainedTo:bounds];
 	
-	[controller willMoveToParentViewController:self];
-	
 	CGFloat alpha = animated ? 0.0f : 1.0f;
 	UIImageView *overlay = [keyWindow blurryImageOverlayWithAlpha:alpha];
 	[keyWindow addSubview:overlay];
@@ -96,8 +94,9 @@ static JTModalManager *_modalManager;
 	[overlay addSubview:containerView];
 	[self addChildViewController:controller];
 	[_modalManager.viewControllerStack addObject:controller];
-
-	[self completeControllerTransition:controller overlay:overlay animated:animated completion:completion];
+	[controller didMoveToParentViewController:self];
+	
+	[self completeTransition:controller overlay:overlay animated:animated completion:completion pushing:YES];
 }
 
 #pragma mark - Pop View Controller
@@ -119,44 +118,40 @@ static JTModalManager *_modalManager;
 		UIImageView *overlay = [_modalManager.blurryOverlayStack lastObject];
 		[_modalManager.viewControllerStack removeObject:controller];
 		[_modalManager.blurryOverlayStack removeObject:overlay];
-		
-		[self completeControllerDismissal:animated controller:controller completion:completion overlay:overlay];
+
+		[controller willMoveToParentViewController:nil];
+		[controller viewWillDisappear:animated];
+		[controller.parentViewController completeTransition:controller overlay:overlay animated:animated completion:^{
+			[overlay removeFromSuperview];
+			[controller removeFromParentViewController];
+			[controller viewDidDisappear:animated];
+			
+			completion();
+		} pushing:NO];
 	}
 }
 
 #pragma mark - Appearing and Disappearing
 
-- (void)completeControllerTransition:(UIViewController*)controller overlay:(UIImageView *)overlay animated:(BOOL)animated completion:(void (^)())completion
+- (void)updateOverlay:(UIImageView*)overlay controller:(UIViewController*)controller pushing:(BOOL)isPushing
 {
-	if (animated) {
-		[UIView animateWithDuration:kJTBlurAnimationDuration animations:^{
-			overlay.alpha = 1.0f;
-			controller.view.alpha = 1.0f;
-		} completion:^(BOOL finished) {
-			callCompletionBlock(completion);
-		}];
-	}
-	else {
-		overlay.alpha = 1.0f;
-		controller.view.alpha = 1.0f;
-		callCompletionBlock(completion);
-	}
+	self.view.alpha = isPushing ? 0.0f : 1.0f;
+	self.view.frame = CGRectInset(self.view.frame, isPushing ? kJTBlurRadius : -kJTBlurRadius, isPushing ? kJTBlurRadius : -kJTBlurRadius);
+	overlay.alpha = isPushing ? 1.0f : 0.0f;
+	controller.view.alpha = isPushing ? 1.0f : 0.0f;
 }
 
-- (void)completeControllerDismissal:(BOOL)animated controller:(UIViewController *)controller completion:(void (^)())completion overlay:(UIImageView *)overlay
+- (void)completeTransition:(UIViewController*)controller overlay:(UIImageView*)overlay animated:(BOOL)animated completion:(void (^)())completion pushing:(BOOL)isPushing
 {
 	if (animated) {
 		[UIView animateWithDuration:kJTBlurAnimationDuration animations:^{
-			overlay.alpha = 0.0f;
-			controller.view.alpha = 0.0f;
+			[self updateOverlay:overlay controller:controller pushing:isPushing];
 		} completion:^(BOOL finished) {
-			[overlay removeFromSuperview];
 			callCompletionBlock(completion);
 		}];
 	}
 	else {
-		overlay.alpha = 0.0f;
-		[overlay removeFromSuperview];
+		[self updateOverlay:overlay controller:controller pushing:isPushing];
 		callCompletionBlock(completion);
 	}
 }
@@ -167,10 +162,20 @@ static JTModalManager *_modalManager;
 
 - (UIImage*)snapshot
 {
-	UIGraphicsBeginImageContextWithOptions([self bounds].size, YES, 0.0f);
+	CGRect bounds = [self bounds];
+	CGSize size = CGSizeMake(bounds.size.width - kJTBlurRadius * 2.0f, bounds.size.height - kJTBlurRadius * 2.0f);
+	UIGraphicsBeginImageContextWithOptions(size, YES, 0.0f);
 	[self.layer renderInContext:UIGraphicsGetCurrentContext()];
 	UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
 	UIGraphicsEndImageContext();
+	
+	UIGraphicsBeginImageContextWithOptions(bounds.size, YES, 0.0f);
+	CGContextRef finalImageContext = UIGraphicsGetCurrentContext();
+	CGContextFillRect(finalImageContext, bounds);
+	[image drawInRect:CGRectInset(bounds, kJTBlurRadius, kJTBlurRadius) blendMode:kCGBlendModeNormal alpha:0.7f];
+	image = UIGraphicsGetImageFromCurrentImageContext();
+	UIGraphicsEndImageContext();
+	
 	return image;
 }
 
@@ -191,9 +196,7 @@ static JTModalManager *_modalManager;
 
 - (UIImageView*)blurryImageOverlayWithAlpha:(CGFloat)alpha
 {
-	CGFloat overExtend = kJTBlurRadius * 2.0f;
-	CGRect bounds = [self bounds];
-	UIImageView *overlay = [[UIImageView alloc] initWithFrame:CGRectMake(bounds.origin.x - overExtend, bounds.origin.y - overExtend, bounds.size.width + 2.0f * overExtend, bounds.size.height + 2.0f * overExtend)];
+	UIImageView *overlay = [[UIImageView alloc] initWithFrame:[self bounds]];
 	overlay.userInteractionEnabled = YES;
 	overlay.image = [self blurrySnapshot];
 	overlay.alpha = alpha;
